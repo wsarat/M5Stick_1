@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
 typedef struct {
     float q; // process noise covariance
@@ -20,10 +22,12 @@ static int    graph_idx = 0;
 
 static kalman_state_t kalman_z;
 static kalman_state_t kalman_x;
+static SemaphoreHandle_t screens_mutex = NULL;
 
 /* ---------------------------------------------------------------
  *  Kalman Filter Implementation
  * --------------------------------------------------------------- */
+// ... (rest of the file)
 static void kalman_init(kalman_state_t *state, float q, float r, float p, float initial_value) {
     state->q = q;
     state->r = r;
@@ -129,6 +133,9 @@ static void draw_x_graph_vertical(int y_offset, float x_now, float *buf, const c
  * --------------------------------------------------------------- */
 void screens_init(void)
 {
+    if (screens_mutex == NULL) {
+        screens_mutex = xSemaphoreCreateMutex();
+    }
     for (int i = 0; i < GRAPH_LEN; i++) {
         z_graph_buf[i] = 0.0f;
         x_graph_buf[i] = 0.0f;
@@ -142,8 +149,23 @@ void screens_init(void)
     kalman_init(&kalman_x, 0.01f, 0.1f, 1.0f, 0.0f);
 }
 
+void screens_lock(void)
+{
+    if (screens_mutex) {
+        xSemaphoreTake(screens_mutex, portMAX_DELAY);
+    }
+}
+
+void screens_unlock(void)
+{
+    if (screens_mutex) {
+        xSemaphoreGive(screens_mutex);
+    }
+}
+
 void screens_update_data(mpu6886_data_t *accel)
 {
+    screens_lock();
     z_graph_buf[graph_idx] = accel->z;
     x_graph_buf[graph_idx] = accel->x;
     
@@ -151,10 +173,12 @@ void screens_update_data(mpu6886_data_t *accel)
     x_kalman_buf[graph_idx] = kalman_update(&kalman_x, accel->x);
     
     graph_idx = (graph_idx + 1) % GRAPH_LEN;
+    screens_unlock();
 }
 
 void screens_draw(int mode, mpu6886_data_t *accel, int batt_level, bool charging, bool blink)
 {
+    screens_lock();
     sh1107_clear();
     draw_line(0, 64, 63, 64, true); // Middle separator
 
@@ -185,5 +209,6 @@ void screens_draw(int mode, mpu6886_data_t *accel, int batt_level, bool charging
             break;
     }
     sh1107_update();
+    screens_unlock();
 }
 

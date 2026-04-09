@@ -16,6 +16,16 @@
 void screens_init(void);
 
 /**
+ * @brief Lock screens for thread-safe access.
+ */
+void screens_lock(void);
+
+/**
+ * @brief Unlock screens.
+ */
+void screens_unlock(void);
+
+/**
  * @brief Update internal graph buffers with new accelerometer data.
  */
 void screens_update_data(mpu6886_data_t *accel);
