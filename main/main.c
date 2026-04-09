@@ -1,12 +1,3 @@
-/* ---------------------------------------------------------------
- *  M5Stick‑Original – split‑screen demo
- *  Top  : moving ball that follows MPU‑6886 (ax, ay) in the range
- *         –1.5 g … +1.5 g  →  mapped to (0 … 63) × (0 … 63)
- *  Bottom: scrolling line‑graph of the Z‑axis acceleration.
- *
- *  The code uses only the existing SH1107 driver (sh1107.c / .h).
- * --------------------------------------------------------------- */
-
 #include <stdio.h>
 #include <inttypes.h>
 #include <stdbool.h>
@@ -18,74 +9,31 @@
 #include "esp_flash.h"
 #include "esp_system.h"
 #include "esp_task_wdt.h"
+#include "driver/gpio.h"
 #include "ip5306.h"
 #include "sh1107.h"
 #include "mpu6886.h"
+#include "screens.h"
 
-/* ---------------------------------------------------------------
- *  Configuration constants
- * --------------------------------------------------------------- */
-#define SCREEN_W          64
-#define SCREEN_H          128
-#define GRAPH_HEIGHT      (SCREEN_H / 2)          // 64 rows for the graph
-#define GRAPH_LEN         64                      // number of points kept
-#define AXIS_RANGE        2.0f                    // ±2.0 g visible range
+#define BUTTON_A_PIN      35                      // Button A is on GPIO 35 (Active Low)
 
-/* ---------------------------------------------------------------
- *  Helper: map a signed acceleration value (‑AXIS_RANGE … +AXIS_RANGE)
- *          to a pixel coordinate inside the *graph* area.
- *
- *  The graph occupies the lower half of the screen (rows 64 … 127).
- * --------------------------------------------------------------- */
-static inline int z_to_graph_y(float z)
-{
-    /* Map [-AXIS_RANGE , +AXIS_RANGE] → [64 , 127] */
-    float norm = (z + AXIS_RANGE) / (2 * AXIS_RANGE);   // 0 … 1
-    if (norm < 0) norm = 0;
-    if (norm > 1) norm = 1;
-    int y = 64 + (int)roundf(norm * (GRAPH_HEIGHT - 1));
-    return y;
-}
-
-/* ---------------------------------------------------------------
- *  Simple line‑drawer – draws a line between (x0,y0) and (x1,y1)
- * --------------------------------------------------------------- */
-static void draw_line(int x0, int y0, int x1, int y1, bool color)
-{
-    int dx = abs(x1 - x0);
-    int dy = abs(y1 - y0);
-    int sx = (x0 < x1) ? 1 : -1;
-    int sy = (y0 < y1) ? 1 : -1;
-    int err = dx - dy;
-
-    while (true) {
-        sh1107_draw_pixel(x0, y0, color);
-        if (x0 == x1 && y0 == y1) break;
-        int e2 = 2 * err;
-        if (e2 > -dy) {
-            err -= dy;
-            x0 += sx;
-        }
-        if (e2 < dx) {
-            err += dx;
-            y0 += sy;
-        }
-    }
-}
-
-/* ---------------------------------------------------------------
- *  Global state
- * --------------------------------------------------------------- */
 static bool   blink = false;                 // used for the battery‑blink
-static float  graph_buf[GRAPH_LEN];          // circular buffer for Z‑accel
-static int    graph_idx = 0;                  // write pointer into the buffer
+static int    screen_mode = 4;                // cycle: 0=Ball/Z, 1=Z/Ball, 2=Ball/X(V), 3=X(V)/Z, 4=Kalman X/Z
+static bool   last_btn_state = true;          // last button state for edge detection
 
-/* ---------------------------------------------------------------
- *  Main entry point
- * --------------------------------------------------------------- */
 void app_main(void)
 {
     printf("M5Stick (Original) Initializing...\n");
+
+    // Initialize Button A
+    gpio_config_t btn_cfg = {
+        .pin_bit_mask = (1ULL << BUTTON_A_PIN),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&btn_cfg);
 
     if (ip5306_init() != ESP_OK) {
         printf("Failed to init IP5306!\n");
@@ -97,8 +45,7 @@ void app_main(void)
         printf("Failed to init SH1107!\n");
     }
 
-    // Initialize graph buffer
-    for (int i = 0; i < GRAPH_LEN; i++) graph_buf[i] = 0.0f;
+    screens_init();
 
     // Subscribe to TWDT
     esp_task_wdt_config_t twdt_config = {
@@ -110,6 +57,14 @@ void app_main(void)
     esp_task_wdt_add(NULL);
 
     while (1) {
+        /* Check Button A (Active Low) */
+        bool btn_state = gpio_get_level(BUTTON_A_PIN);
+        if (last_btn_state && !btn_state) {
+            screen_mode = (screen_mode + 1) % 5;
+            printf("Screen Mode: %d\n", screen_mode);
+        }
+        last_btn_state = btn_state;
+
         /* 1. Read sensors */
         mpu6886_data_t accel, gyro;
         int batt_level = 0;
@@ -119,53 +74,13 @@ void app_main(void)
         mpu6886_get_accel(&accel);
         mpu6886_get_gyro(&gyro);
 
-        /* Update graph buffer */
-        graph_buf[graph_idx] = accel.z;
-        graph_idx = (graph_idx + 1) % GRAPH_LEN;
+        /* 2. Update and Draw */
+        screens_update_data(&accel);
+        screens_draw(screen_mode, &accel, batt_level, charging, blink);
 
-        /* 2. Clear buffer */
-        sh1107_clear();
-
-        /* 3. TOP HALF: Ball */
-        int ball_x = (int)roundf(((accel.x + AXIS_RANGE) / (2 * AXIS_RANGE)) * (SCREEN_W - 1));
-        int ball_y = (int)roundf(((accel.y + AXIS_RANGE) / (2 * AXIS_RANGE)) * (GRAPH_HEIGHT - 1));
-        
-        /* Clamp to top half bounds */
-        ball_x = (ball_x < 0) ? 0 : (ball_x > SCREEN_W-1 ? SCREEN_W-1 : ball_x);
-        ball_y = (ball_y < 0) ? 0 : (ball_y > 63 ? 63 : ball_y);
-
-        sh1107_draw_circle(ball_x, ball_y, 4, true);
-        sh1107_draw_cross(ball_x, ball_y, true);
-
-        /* Battery & Status (Top) */
-        sh1107_draw_battery(48, 2, batt_level, charging, blink);
-        char buf[16];
-        snprintf(buf, sizeof(buf), "%d%%", batt_level);
-        sh1107_draw_string(30, 2, buf, true);
-        sh1107_draw_string(2, 2, "M5Stick", true);
-
-        /* Telemetry */
-        snprintf(buf, sizeof(buf), "Z:%.2f", accel.z);
-        sh1107_draw_string(2, 120, buf, true);
-
-        /* 4. BOTTOM HALF: Scrolling Graph */
-        // Draw a separator line
-        draw_line(0, 64, 63, 64, true);
-
-        for (int i = 0; i < GRAPH_LEN - 1; i++) {
-            int idx1 = (graph_idx + i) % GRAPH_LEN;
-            int idx2 = (graph_idx + i + 1) % GRAPH_LEN;
-            int y1 = z_to_graph_y(graph_buf[idx1]);
-            int y2 = z_to_graph_y(graph_buf[idx2]);
-            draw_line(i, y1, i + 1, y2, true);
-        }
-
-        /* 5. Update display */
-        sh1107_update();
-
-        /* 6. Maintenance */
+        /* 3. Maintenance */
         esp_task_wdt_reset();
         blink = !blink;
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(25));
     }
 }
