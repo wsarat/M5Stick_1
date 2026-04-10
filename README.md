@@ -1,16 +1,50 @@
 | Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-H21 | ESP32-H4 | ESP32-P4 | ESP32-S2 | ESP32-S3 | Linux |
 | ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | --------- | -------- | -------- | -------- | -------- | ----- |
 
-# Hello World Example for Original M5Stick
+# M5Stick (Original Gray) Automotive G-Meter & Sensors
 
-Starts a FreeRTOS task to print "Hello World" to the serial console. This project is specifically configured for the **Original M5Stick** (B/W OLED version, ESP32-PICO-D4).
+This project is specifically configured for the **Original M5Stick** (ESP32-PICO-D4, SH1107 OLED). It features a multi-threaded architecture for real-time sensor processing and BLE broadcasting.
+
+## Screen Modes
+Press **Button A** (top button) to cycle through the 7 available screen modes:
+
+- **Mode 0: Ball & Z-Graph**
+  - Top: 2D Accelerometer position (X/Y) represented as a moving ball.
+  - Bottom: Rolling graph of the Z-axis (longitudinal/vertical).
+- **Mode 1: Z-Graph & Ball**
+  - Reverse of Mode 0.
+- **Mode 2: Ball & X-Graph**
+  - Top: 2D Accelerometer ball.
+  - Bottom: Rolling graph of the X-axis (lateral).
+- **Mode 3: X & Z Graphs**
+  - Top: Rolling graph of X-axis.
+  - Bottom: Rolling graph of Z-axis.
+- **Mode 4: Kalman Filtered X & Z**
+  - Smooth, noise-reduced rolling graphs of X and Z axes using a Kalman filter.
+- **Mode 5: Automotive G-Meter (Default)**
+  - Top: Circular G-meter with 0.5G/1.0G markers and a **5-second trail** to track cornering/acceleration history.
+  - Bottom: Absolute magnitude of total G-force (`sqrt(X^2 + Z^2)`) with a high-precision readout and intensity bar.
+  - **Mapping:** `-Z` is Accelerate, `+Z` is Brake, `-X` is Left Turn, `+X` is Right Turn.
+- **Mode 6: Yaw Rate Gauge & Graph**
+  - Top: Horizontal gauge showing real-time yaw rate (deg/s) using the IMU's Y-axis (vertical when mounted for G-metering).
+  - Bottom: Rolling graph of the yaw rate history.
+
+## Features
+- **Multi-threaded Architecture:** 
+  - `sensor_task`: 50Hz hardware sampling.
+  - `display_task`: 20Hz smooth OLED refresh.
+  - `ble_task`: 1Hz broadcast of real-time sensor data in BLE advertisement packets.
+  - `main`: Heartbeat and system monitoring.
+- **BLE Data:** Accelerometer data is broadcasted in the manufacturer-specific data field (8 bytes: `[FF FF][AX_HI AX_LO][AY_HI AY_LO][AZ_HI AZ_LO]`).
 
 ## Hardware
-- **Device:** Original M5Stick (StickWatch)
+- **Device:** Original M5Stick (Gray version)
 - **CPU:** ESP32-PICO-D4
-- **Display:** 0.96" B/W OLED (SSD1306)
+- **Display:** 0.96" SH1107 OLED (64x128)
+- **IMU:** MPU6886
+- **PMIC:** IP5306
 
-## How to use example
+## How to use
 1. Set the target to ESP32: `idf.py set-target esp32`
 2. Build the project: `idf.py build`
 3. Flash and monitor: `idf.py -p PORT flash monitor`

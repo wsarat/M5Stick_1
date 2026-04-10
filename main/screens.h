@@ -2,12 +2,12 @@
 #define SCREENS_H
 
 #include "mpu6886.h"
+#include "sensor_processor.h"
 #include <stdbool.h>
 
 #define SCREEN_W          64
 #define SCREEN_H          128
 #define GRAPH_HEIGHT      64
-#define GRAPH_LEN         64
 #define AXIS_RANGE        1.0f
 
 /**
@@ -16,29 +16,15 @@
 void screens_init(void);
 
 /**
- * @brief Lock screens for thread-safe access.
- */
-void screens_lock(void);
-
-/**
- * @brief Unlock screens.
- */
-void screens_unlock(void);
-
-/**
- * @brief Update internal graph buffers with new accelerometer data.
- */
-void screens_update_data(mpu6886_data_t *accel);
-
-/**
- * @brief Draw the selected screen mode to the SH1107 buffer.
+ * @brief Draw the selected screen mode.
  * 
- * @param mode The screen mode index (0-3).
- * @param accel Current accelerometer data for real-time elements (like the ball).
+ * @param mode The screen mode index (0-4).
+ * @param accel Current accelerometer data for real-time elements.
+ * @param data Pointer to processed sensor data (graphs, Kalman).
  * @param batt_level Battery level percentage.
  * @param charging Charging status.
  * @param blink Blink state for battery indicator.
  */
-void screens_draw(int mode, mpu6886_data_t *accel, int batt_level, bool charging, bool blink);
+void screens_draw(int mode, mpu6886_data_t *accel, processed_sensor_data_t *data, int batt_level, bool charging, bool blink);
 
 #endif // SCREENS_H
