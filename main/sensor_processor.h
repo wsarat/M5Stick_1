@@ -1,7 +1,7 @@
 #ifndef SENSOR_PROCESSOR_H
 #define SENSOR_PROCESSOR_H
 
-#include "mpu6886.h"
+#include "imu_sensor.h"
 
 #define GRAPH_LEN         256
 
@@ -23,9 +23,9 @@ typedef struct {
 void sensor_processor_init(void);
 
 /**
- * @brief Update processor with new raw accelerometer and gyroscope data.
+ * @brief Update processor with new processed IMU data.
  */
-void sensor_processor_update(mpu6886_data_t *accel, mpu6886_data_t *gyro);
+void sensor_processor_update(const imu_state_t *imu);
 
 /**
  * @brief Lock processor for thread-safe data access.

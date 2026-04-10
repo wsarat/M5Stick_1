@@ -68,10 +68,10 @@ static void draw_dashed_line(int x0, int y0, int x1, int y1, int dash_len, bool 
 /* ---------------------------------------------------------------
  *  Layout Primitives
  * --------------------------------------------------------------- */
-static void draw_ball_section(int y_offset, mpu6886_data_t *accel, int batt, bool charge, bool blink)
+static void draw_ball_section(int y_offset, imu_state_t *imu, int batt, bool charge, bool blink)
 {
-    int bx = (int)roundf(((accel->x + AXIS_RANGE) / (2 * AXIS_RANGE)) * (SCREEN_W - 1));
-    int by = y_offset + (int)roundf(((accel->y + AXIS_RANGE) / (2 * AXIS_RANGE)) * (GRAPH_HEIGHT - 1));
+    int bx = (int)roundf(((imu->accel.x + AXIS_RANGE) / (2 * AXIS_RANGE)) * (SCREEN_W - 1));
+    int by = y_offset + (int)roundf(((imu->accel.y + AXIS_RANGE) / (2 * AXIS_RANGE)) * (GRAPH_HEIGHT - 1));
     bx = (bx < 0) ? 0 : (bx > SCREEN_W-1 ? SCREEN_W-1 : bx);
     by = (by < y_offset) ? y_offset : (by > y_offset + 63 ? y_offset + 63 : by);
 
@@ -226,43 +226,43 @@ void screens_init(void)
     // No longer needs internal state/mutex for processing
 }
 
-void screens_draw(int mode, mpu6886_data_t *accel, processed_sensor_data_t *data, int batt_level, bool charging, bool blink)
+void screens_draw(int mode, imu_state_t *imu, processed_sensor_data_t *data, int batt_level, bool charging, bool blink)
 {
     sh1107_clear();
     draw_line(0, 64, 63, 64, true); // Middle separator
 
     switch (mode) {
         case 0: // Ball Top / Z-Graph Bottom
-            draw_ball_section(0, accel, batt_level, charging, blink);
-            draw_z_graph(64, accel->z, data->z_graph, data->graph_idx, "Z");
+            draw_ball_section(0, imu, batt_level, charging, blink);
+            draw_z_graph(64, imu->accel.z, data->z_graph, data->graph_idx, "Z");
             break;
         case 1: // Z-Graph Top / Ball Bottom
-            draw_z_graph(0, accel->z, data->z_graph, data->graph_idx, "Z");
-            draw_ball_section(64, accel, batt_level, charging, blink);
+            draw_z_graph(0, imu->accel.z, data->z_graph, data->graph_idx, "Z");
+            draw_ball_section(64, imu, batt_level, charging, blink);
             break;
         case 2: // Ball Top / X-Graph Bottom
-            draw_ball_section(0, accel, batt_level, charging, blink);
-            draw_x_graph_vertical(64, accel->x, data->x_graph, data->graph_idx, "X");
+            draw_ball_section(0, imu, batt_level, charging, blink);
+            draw_x_graph_vertical(64, imu->accel.x, data->x_graph, data->graph_idx, "X");
             break;
         case 3: // X-Graph Top / Z-Graph Bottom
-            draw_x_graph_vertical(0, accel->x, data->x_graph, data->graph_idx, "X");
-            draw_z_graph(64, accel->z, data->z_graph, data->graph_idx, "Z");
+            draw_x_graph_vertical(0, imu->accel.x, data->x_graph, data->graph_idx, "X");
+            draw_z_graph(64, imu->accel.z, data->z_graph, data->graph_idx, "Z");
             break;
         case 4: // Kalman X-Graph Top / Kalman Z-Graph Bottom
             draw_x_graph_vertical(0, data->kalman_x_val, data->x_kalman_graph, data->graph_idx, "KX");
             draw_z_graph(64, data->kalman_z_val, data->z_kalman_graph, data->graph_idx, "KZ");
             break;
         case 5: // G-Meter Top / Absolute G Bottom
-            draw_g_meter(0, accel->x, accel->z, data->x_graph, data->z_graph, data->graph_idx);
-            draw_total_g(64, accel->x, accel->z);
+            draw_g_meter(0, imu->accel.x, imu->accel.z, data->x_graph, data->z_graph, data->graph_idx);
+            draw_total_g(64, imu->accel.x, imu->accel.z);
             break;
         case 6: // Yaw Rate Gauge Top / Yaw Rate Graph Bottom
             draw_yaw_rate_gauge(0, data->current_yaw_rate);
             draw_yaw_rate_graph(64, data->yaw_rate_graph, data->graph_idx);
             break;
         default:
-            draw_x_graph_vertical(0, accel->x, data->x_graph, data->graph_idx, "X");
-            draw_z_graph(64, accel->z, data->z_graph, data->graph_idx, "Z");
+            draw_x_graph_vertical(0, imu->accel.x, data->x_graph, data->graph_idx, "X");
+            draw_z_graph(64, imu->accel.z, data->z_graph, data->graph_idx, "Z");
             break;
     }
     sh1107_update();

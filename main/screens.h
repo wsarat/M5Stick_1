@@ -1,7 +1,7 @@
 #ifndef SCREENS_H
 #define SCREENS_H
 
-#include "mpu6886.h"
+#include "imu_sensor.h"
 #include "sensor_processor.h"
 #include <stdbool.h>
 
@@ -25,6 +25,6 @@ void screens_init(void);
  * @param charging Charging status.
  * @param blink Blink state for battery indicator.
  */
-void screens_draw(int mode, mpu6886_data_t *accel, processed_sensor_data_t *data, int batt_level, bool charging, bool blink);
+void screens_draw(int mode, imu_state_t *imu, processed_sensor_data_t *data, int batt_level, bool charging, bool blink);
 
 #endif // SCREENS_H

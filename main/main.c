@@ -8,7 +8,7 @@
 #include "driver/gpio.h"
 #include "ip5306.h"
 #include "sh1107.h"
-#include "mpu6886.h"
+#include "imu_sensor.h"
 #include "screens.h"
 #include "common_state.h"
 #include "sensor_processor.h"
@@ -30,6 +30,20 @@ void app_main(void)
 
     // Initialize Mutex and Processors
     g_state_mutex = xSemaphoreCreateMutex();
+    
+    // Initialize IMU with specific car mounting config
+    if (imu_sensor_init() == ESP_OK) {
+        imu_config_t config = {
+            .filter_alpha = 0.2f,    // Slightly more responsive
+            .yaw_comp_x = 1.8f,     // Lat G comp
+            .yaw_comp_z = 0.5f,     // Accel G comp
+            .gyro_y_bias = 0.0f
+        };
+        imu_sensor_set_config(&config);
+    } else {
+        printf("Failed to init IMU sensor!\n");
+    }
+
     sensor_processor_init();
 
     // Initialize Hardware
@@ -43,7 +57,6 @@ void app_main(void)
     gpio_config(&btn_cfg);
 
     if (ip5306_init() != ESP_OK) printf("Failed to init IP5306!\n");
-    if (mpu6886_init() != ESP_OK) printf("Failed to init MPU6886!\n");
     if (sh1107_init() != ESP_OK) printf("Failed to init SH1107!\n");
 
     screens_init();

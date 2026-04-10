@@ -43,21 +43,21 @@ static void ble_app_advertise(void)
     fields.name_is_complete = 1;
 
     // Get current accel data for manufacturer data
-    mpu6886_data_t local_accel;
+    imu_state_t local_imu;
     if (xSemaphoreTake(g_state_mutex, pdMS_TO_TICKS(10))) {
-        local_accel = g_state.accel;
+        local_imu = g_state.imu;
         xSemaphoreGive(g_state_mutex);
     } else {
-        memset(&local_accel, 0, sizeof(local_accel));
+        memset(&local_imu, 0, sizeof(local_imu));
     }
 
     // Pack accel data into mfg data (6 bytes: 2 for X, 2 for Y, 2 for Z as int16 scaled by 1000)
     uint8_t mfg_data[8];
     mfg_data[0] = 0xFF; // Company ID Lo (Example)
     mfg_data[1] = 0xFF; // Company ID Hi
-    int16_t ax = (int16_t)(local_accel.x * 1000);
-    int16_t ay = (int16_t)(local_accel.y * 1000);
-    int16_t az = (int16_t)(local_accel.z * 1000);
+    int16_t ax = (int16_t)(local_imu.accel.x * 1000);
+    int16_t ay = (int16_t)(local_imu.accel.y * 1000);
+    int16_t az = (int16_t)(local_imu.accel.z * 1000);
     memcpy(&mfg_data[2], &ax, 2);
     memcpy(&mfg_data[4], &ay, 2);
     memcpy(&mfg_data[6], &az, 2);

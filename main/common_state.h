@@ -1,14 +1,13 @@
 #ifndef COMMON_STATE_H
 #define COMMON_STATE_H
 
-#include "mpu6886.h"
+#include "imu_sensor.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
 // Shared state structure
 typedef struct {
-    mpu6886_data_t accel;
-    mpu6886_data_t gyro;
+    imu_state_t imu;
     int batt_level;
     bool charging;
     int screen_mode;

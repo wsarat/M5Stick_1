@@ -52,8 +52,8 @@ void sensor_processor_init(void)
     g_processed_data.graph_idx = 0;
     
     // Initialize Kalman filters: q (process noise), r (sensor noise), p (initial error), initial value
-    kalman_init(&kalman_z, 0.01f, 0.5f, 1.0f, 0.0f);
-    kalman_init(&kalman_x, 0.01f, 0.5f, 1.0f, 0.0f);
+    kalman_init(&kalman_z, 0.01f, 0.1f, 1.0f, 0.0f);
+    kalman_init(&kalman_x, 0.01f, 0.1f, 1.0f, 0.0f);
 }
 
 void sensor_processor_lock(void)
@@ -70,42 +70,24 @@ void sensor_processor_unlock(void)
     }
 }
 
-static float g_yaw_rate_filter = 0.0f;
-
-// Compensation factors (deg/s per G)
-// These may need fine-tuning based on physical mounting flex
-#define YAW_COMP_X  1.8f  // Adjusts for Lateral G leakage
-#define YAW_COMP_Z  0.5f  // Adjusts for Accel/Brake G leakage
-
-void sensor_processor_update(mpu6886_data_t *accel, mpu6886_data_t *gyro)
+void sensor_processor_update(const imu_state_t *imu)
 {
     sensor_processor_lock();
     
-    // Current raw values
-    g_processed_data.z_graph[g_processed_data.graph_idx] = accel->z;
-    g_processed_data.x_graph[g_processed_data.graph_idx] = accel->x;
+    // Store data in rolling graphs
+    g_processed_data.z_graph[g_processed_data.graph_idx] = imu->accel.z;
+    g_processed_data.x_graph[g_processed_data.graph_idx] = imu->accel.x;
     
-    // Current Kalman values
-    g_processed_data.kalman_z_val = kalman_update(&kalman_z, accel->z);
-    g_processed_data.kalman_x_val = kalman_update(&kalman_x, accel->x);
+    // Secondary Kalman filtering for "Smooth" screen mode
+    g_processed_data.kalman_z_val = kalman_update(&kalman_z, imu->accel.z);
+    g_processed_data.kalman_x_val = kalman_update(&kalman_x, imu->accel.x);
     
-    // Kalman graph buffers
     g_processed_data.z_kalman_graph[g_processed_data.graph_idx] = g_processed_data.kalman_z_val;
     g_processed_data.x_kalman_graph[g_processed_data.graph_idx] = g_processed_data.kalman_x_val;
     
-    // 1. Compensate for G-Sensitivity (Linear Acceleration Interference)
-    // We subtract the interference caused by lateral (X) and longitudinal (Z) forces
-    float raw_yaw_rate = gyro->y;
-    float compensated_yaw_rate = raw_yaw_rate - (accel->x * YAW_COMP_X) - (accel->z * YAW_COMP_Z);
-
-    // 2. Low-pass filter to remove vibration noise
-    g_yaw_rate_filter = (g_yaw_rate_filter * 0.85f) + (compensated_yaw_rate * 0.15f);
-    
-    // 3. Apply a small deadzone to ignore static drift
-    if (fabsf(g_yaw_rate_filter) < 0.5f) g_yaw_rate_filter = 0.0f;
-
-    g_processed_data.current_yaw_rate = g_yaw_rate_filter;
-    g_processed_data.yaw_rate_graph[g_processed_data.graph_idx] = g_processed_data.current_yaw_rate;
+    // Yaw rate from IMU sensor component
+    g_processed_data.current_yaw_rate = imu->yaw_rate;
+    g_processed_data.yaw_rate_graph[g_processed_data.graph_idx] = imu->yaw_rate;
     
     // Increment index
     g_processed_data.graph_idx = (g_processed_data.graph_idx + 1) % GRAPH_LEN;

@@ -25,16 +25,18 @@ Press **Button A** (top button) to cycle through the 7 available screen modes:
   - Top: Circular G-meter with 0.5G/1.0G markers and a **5-second trail** to track cornering/acceleration history.
   - Bottom: Absolute magnitude of total G-force (`sqrt(X^2 + Z^2)`) with a high-precision readout and intensity bar.
   - **Mapping:** `-Z` is Accelerate, `+Z` is Brake, `-X` is Left Turn, `+X` is Right Turn.
-- **Mode 6: Yaw Rate Gauge & Graph**
-  - Top: Horizontal gauge showing real-time yaw rate (deg/s) using the IMU's Y-axis (vertical when mounted for G-metering).
+- **Mode 6: Yaw Rate Gauge & Graph (100 d/s)**
+  - Top: Horizontal gauge showing real-time yaw rate (deg/s) using the IMU's Y-axis (vertical). Range extended to **100 deg/s**.
   - Bottom: Rolling graph of the yaw rate history.
 
 ## Features
+- **Modular IMU Component:** All sensor processing (Kalman filtering, G-sensitivity compensation, low-pass filters) is encapsulated in the `imu_sensor` component.
+- **Easy Configuration:** IMU parameters can be adjusted via the `imu_config_t` structure in `main.c`.
 - **Multi-threaded Architecture:** 
-  - `sensor_task`: 50Hz hardware sampling.
+  - `sensor_task`: 50Hz hardware sampling and IMU processing.
   - `display_task`: 20Hz smooth OLED refresh.
-  - `ble_task`: 1Hz broadcast of real-time sensor data in BLE advertisement packets.
-  - `main`: Heartbeat and system monitoring.
+  - `ble_task`: 1Hz broadcast of processed sensor data.
+  - `alarm_task`: Safety monitoring for dangerous yaw rates.
 - **BLE Data:** Accelerometer data is broadcasted in the manufacturer-specific data field (8 bytes: `[FF FF][AX_HI AX_LO][AY_HI AY_LO][AZ_HI AZ_LO]`).
 
 ## Hardware

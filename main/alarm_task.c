@@ -5,7 +5,7 @@
 #include "freertos/task.h"
 #include "driver/ledc.h"
 #include "driver/gpio.h"
-#include "sensor_processor.h"
+#include "imu_sensor.h"
 #include "common_state.h"
 
 #define BUZZER_GPIO       26
@@ -65,10 +65,18 @@ void alarm_task(void *pvParameters)
     buzzer_init();
 
     while (1) {
-        sensor_processor_lock();
-        processed_sensor_data_t *data = sensor_processor_get_data();
-        float yaw_rate = fabsf(data->current_yaw_rate);
-        sensor_processor_unlock();
+        // Read directly from the IMU hardware/filter state if needed,
+        // or just use the shared state for consistency.
+        imu_state_t imu;
+        if (xSemaphoreTake(g_state_mutex, pdMS_TO_TICKS(10))) {
+            imu = g_state.imu;
+            xSemaphoreGive(g_state_mutex);
+        } else {
+            vTaskDelay(1);
+            continue;
+        }
+
+        float yaw_rate = fabsf(imu.yaw_rate);
 
         if (yaw_rate >= YAW_CRIT_LIMIT) {
             // CRITICAL: Rapid double beep, LED ON
