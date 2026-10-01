@@ -1,5 +1,6 @@
 #include "screens.h"
 #include "sh1107.h"
+#include "ip5306.h"
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
@@ -81,7 +82,10 @@ static void draw_ball_section(int y_offset, imu_state_t *imu, int batt, bool cha
     char buf[16];
     snprintf(buf, sizeof(buf), "%d%%", batt);
     sh1107_draw_string(30, y_offset + 2, buf, true);
-    sh1107_draw_string(2, y_offset + 12, "M5Stick", true);
+    // Estimated cell voltage (4-level gauge midpoint, not a measurement)
+    int batt_mv = ip5306_estimate_voltage_mv(batt, charge);
+    snprintf(buf, sizeof(buf), "%d.%02dV", batt_mv / 1000, (batt_mv % 1000) / 10);
+    sh1107_draw_string(2, y_offset + 12, buf, true);
 }
 
 static void draw_z_graph(int y_offset, float z_now, float *buf, int graph_idx, const char *label)
@@ -218,6 +222,32 @@ static void draw_yaw_rate_graph(int y_offset, float *buf, int graph_idx)
     sh1107_draw_string(2, y_offset + 2, "100 deg/s", true);
 }
 
+static void draw_temp_section(int y_offset, const char *label, float temp_c)
+{
+    char buf[24];
+
+    sh1107_draw_string(2, y_offset + 4, label, true);
+
+    if (isnan(temp_c)) {
+        snprintf(buf, sizeof(buf), "--.- C");
+        temp_c = -10.0f; // empty bar
+    } else {
+        snprintf(buf, sizeof(buf), "%.1f C", temp_c);
+    }
+    sh1107_draw_string(2, y_offset + 20, buf, true);
+
+    // Scale bar: -10C..80C mapped to 0..60 px
+    int bar_w = (int)((temp_c + 10.0f) * 60.0f / 90.0f);
+    if (bar_w < 0) bar_w = 0;
+    if (bar_w > 60) bar_w = 60;
+    for (int i = 0; i < 6; i++) {
+        draw_line(2, y_offset + 34 + i, 2 + bar_w, y_offset + 34 + i, true);
+    }
+
+    sh1107_draw_string(2, y_offset + 46, "-10", true);
+    sh1107_draw_string(46, y_offset + 46, "80", true);
+}
+
 /* ---------------------------------------------------------------
  *  Public API
  * --------------------------------------------------------------- */
@@ -226,7 +256,7 @@ void screens_init(void)
     // No longer needs internal state/mutex for processing
 }
 
-void screens_draw(int mode, imu_state_t *imu, processed_sensor_data_t *data, int batt_level, bool charging, bool blink)
+void screens_draw(int mode, imu_state_t *imu, processed_sensor_data_t *data, int batt_level, bool charging, bool blink, float cpu_temp_c)
 {
     sh1107_clear();
     draw_line(0, 64, 63, 64, true); // Middle separator
@@ -259,6 +289,10 @@ void screens_draw(int mode, imu_state_t *imu, processed_sensor_data_t *data, int
         case 6: // Yaw Rate Gauge Top / Yaw Rate Graph Bottom
             draw_yaw_rate_gauge(0, data->current_yaw_rate);
             draw_yaw_rate_graph(64, data->yaw_rate_graph, data->graph_idx);
+            break;
+        case 7: // IMU Temperature Top / CPU Temperature Bottom
+            draw_temp_section(0, "IMU TEMP", imu->temp_c);
+            draw_temp_section(64, "CPU TEMP", cpu_temp_c);
             break;
         default:
             draw_x_graph_vertical(0, imu->accel.x, data->x_graph, data->graph_idx, "X");

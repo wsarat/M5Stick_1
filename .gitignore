@@ -79,4 +79,4 @@ Desktop.ini
 
 .vscode/
 .clangd
-.devcontainer/devcontainer.json
+.devcontainer/

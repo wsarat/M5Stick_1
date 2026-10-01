@@ -3,7 +3,7 @@
 
 /**
  * @brief Task 1: Sensor Reading
- * Periodically reads MPU6886, IP5306, and Button A.
+ * Periodically reads MPU9250, IP5306, and Button A.
  */
 void sensor_task(void *pvParameters);
 

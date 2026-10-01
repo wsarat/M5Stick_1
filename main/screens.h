@@ -18,13 +18,14 @@ void screens_init(void);
 /**
  * @brief Draw the selected screen mode.
  * 
- * @param mode The screen mode index (0-4).
+ * @param mode The screen mode index (0-7).
  * @param accel Current accelerometer data for real-time elements.
  * @param data Pointer to processed sensor data (graphs, Kalman).
  * @param batt_level Battery level percentage.
  * @param charging Charging status.
  * @param blink Blink state for battery indicator.
+ * @param cpu_temp_c ESP32 die temperature in Celsius.
  */
-void screens_draw(int mode, imu_state_t *imu, processed_sensor_data_t *data, int batt_level, bool charging, bool blink);
+void screens_draw(int mode, imu_state_t *imu, processed_sensor_data_t *data, int batt_level, bool charging, bool blink, float cpu_temp_c);
 
 #endif // SCREENS_H

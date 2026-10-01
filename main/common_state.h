@@ -12,6 +12,7 @@ typedef struct {
     bool charging;
     int screen_mode;
     bool blink;
+    float cpu_temp_c;
 } shared_state_t;
 
 extern shared_state_t g_state;

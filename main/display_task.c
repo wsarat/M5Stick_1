@@ -26,7 +26,8 @@ void display_task(void *pvParameters)
 
         /* Draw */
         screens_draw(local_state.screen_mode, &local_state.imu, proc_data,
-                     local_state.batt_level, local_state.charging, local_state.blink);
+                     local_state.batt_level, local_state.charging, local_state.blink,
+                     local_state.cpu_temp_c);
         
         sensor_processor_unlock();
 
