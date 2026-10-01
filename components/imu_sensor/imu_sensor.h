@@ -3,6 +3,7 @@
 
 #include "esp_err.h"
 #include <stdbool.h>
+#include <stdint.h>
 
 /**
  * @brief Simple 3D vector for accelerometer and gyroscope data.
@@ -33,6 +34,8 @@ typedef struct {
     imu_data_t accel;        // Raw accelerometer data in G
     imu_data_t gyro;         // Raw gyroscope data in deg/s
     float yaw_rate;          // Compensated and filtered yaw rate (deg/s)
+    int16_t temp_raw;        // Raw TEMP_OUT counts (debug)
+    float temp_c;            // Die temperature of the IMU in Celsius
 } imu_state_t;
 
 /**
